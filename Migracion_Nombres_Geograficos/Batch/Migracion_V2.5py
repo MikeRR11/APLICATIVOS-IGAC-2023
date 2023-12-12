@@ -1,0 +1,2248 @@
+# -*- coding: utf-8 -*-
+# ---------------------------------------------------------------------------
+# Direccion de Gestion de Información Geografica
+# Created on: 2023-05-20
+# Created by: Gabriel Hernan Gonzalez Buitrago
+# # Usage: Migracion de Dataset Superficies de Agua a GDB v.2.5
+# Description:
+# ---------------------------------------------------------------------------
+# Import arcpy module
+from doctest import ELLIPSIS_MARKER
+import arcpy
+import os
+# Script arguments
+GDB_input = arcpy.GetParameterAsText(0)
+#GDB_input ='D:/22_IGAC/2. Proyectos/3. Desarrollos/4. Migracion_modelo/1_insumos/Carto10000_15162_RS_20160126.gdb'
+GDB_output = arcpy.GetParameterAsText(1)
+#GDB_output ='D:/22_IGAC/2. Proyectos/3. Desarrollos/4. Migracion_modelo/1_insumos/GDB_NUEVO_MODELO/CBasica_V2.5.gdb'
+# arcpy.env.workspace=GDB_input
+#global Variable:
+i=0 #contador
+# Showing templates
+sep= '######################################'
+arrow= '--'
+hasht= '##'
+#------- Migracion Superficies de Agua-------------#
+#--------------------------------------------------#
+arcpy.AddMessage("\n{0} ...INICIANDO PROCESO DE MIGRACION... {1}.".format(sep, sep))
+arcpy.AddMessage("{0}{1}{2}\n".format(sep, sep,sep))
+arcpy.AddMessage("{0} Dataset Superficies_Agua... ".format(hasht))
+#activeeditsesion()
+
+lista_gdbs = os.listdir(GDB_input)
+for gdbs in lista_gdbs:
+    entrada = os.path.join(GDB_input,gdbs)
+    if entrada.endswith(".gdb"):
+        #Impresion de registros migrados 
+        def registrosmigrados(x, ly_migrado):
+            arcpy.AddMessage("    Han sido migrados {0} registros al Feature {1}.".format(x, ly_migrado))
+        def obtener_nombres_drenajes_pol(lyr_poly):
+            #Uso:Genera una tabla con los vertices extremos de los drenaje dobles que tienen 
+            arcpy.AddMessage("   ...Extrayendo nombres de Drenaje_doble.")
+            global entrada
+            arcpy.env.workspace=entrada
+            temp_DrenajeNamed=arcpy.management.SelectLayerByAttribute('Superficies_Agua/Drenaje_Doble','NEW_SELECTION', where_clause="NOMBRE_GEOGRAFICO IS NOT NULL and NOMBRE_GEOGRAFICO NOT LIKE '' AND NOMBRE_GEOGRAFICO NOT LIKE ' '")
+            arcpy.topographic.PolygonToCenterline(temp_DrenajeNamed, os.path.join(entrada,'temp_DrenajeNamed_centeredline'), None)
+            arcpy.management.JoinField(os.path.join(entrada,'temp_DrenajeNamed_centeredline'), "FID", temp_DrenajeNamed, "OBJECTID", "NOMBRE_GEOGRAFICO", "NOT_USE_FM", None)                                      
+            arcpy.management.FeatureVerticesToPoints('temp_DrenajeNamed_centeredline', os.path.join(entrada,'temp_DrenajeNamed_vertex'), "BOTH_ENDS")
+            nombres_dd=arcpy.management.JoinField( os.path.join(entrada,'temp_DrenajeNamed_vertex'), "FID", temp_DrenajeNamed, "OBJECTID", "NOMBRE_GEOGRAFICO", "NOT_USE_FM", None)
+            arcpy.Delete_management('temp_DrenajeNamed_centeredline')  #eliminando temporales
+            return nombres_dd
+        def obtener_nombres_drenajes_lin(lyr_poly):
+            #Uso:Genera una tabla con los vertices extremos de los drenaje sencillo que tienen 
+            arcpy.AddMessage("   ...Extrayendo nombres de Drenaje_sencillo")
+            global entrada
+            arcpy.env.workspace=entrada
+            temp_DrenajesencNamed=arcpy.management.SelectLayerByAttribute('Superficies_Agua/Drenaje_Sencillo','NEW_SELECTION', where_clause="NOMBRE_GEOGRAFICO IS NOT NULL AND NOMBRE_GEOGRAFICO NOT LIKE '' AND NOMBRE_GEOGRAFICO NOT LIKE ' '")
+            nombres_ds=arcpy.management.FeatureVerticesToPoints(temp_DrenajesencNamed, os.path.join(entrada,'temp_DrenajesencNamed_vertex'), "BOTH_ENDS")
+            #nombres_ds=arcpy.management.JoinField( os.path.join(GDB_input,'temp_DrenajesencNamed_vertex'), "FID", temp_DrenajesencNamed, "OBJECTID", "NOMBRE_GEOGRAFICO", "NOT_USE_FM", None)
+            return nombres_ds
+        def obtener_nombres_via(lyr_poly):
+            #Uso:Genera una tabla con los vertices extremos de los drenaje sencillo que tienen 
+            arcpy.AddMessage("   ...Extrayendo nombres de via")
+            global entrada
+            arcpy.env.workspace=entrada
+            temp_ViasNamed=arcpy.management.SelectLayerByAttribute('Transporte_Terrestre/Via','NEW_SELECTION', where_clause="NOMBRE_GEOGRAFICO IS NOT NULL AND NOMBRE_GEOGRAFICO NOT LIKE '' AND NOMBRE_GEOGRAFICO NOT LIKE ' '")
+            nombres_via=arcpy.management.FeatureVerticesToPoints(temp_ViasNamed, os.path.join(entrada,'temp_ViasNamed_vertex'), "BOTH_ENDS")
+            #nombres_ds=arcpy.management.JoinField( os.path.join(GDB_input,'temp_DrenajesencNamed_vertex'), "FID", temp_DrenajesencNamed, "OBJECTID", "NOMBRE_GEOGRAFICO", "NOT_USE_FM", None)
+            return nombres_via
+        def obtener_nombres_telef(lyr_poly):
+            #Uso:Genera una tabla con los vertices extremos de los drenaje sencillo que tienen 
+            arcpy.AddMessage("   ...Extrayendo nombres de teleferico")
+            global entrada
+            arcpy.env.workspace=entrada
+            temp_TelefNamed=arcpy.management.SelectLayerByAttribute('Transporte_Terrestre/Teleferico','NEW_SELECTION', where_clause="NOMBRE_GEOGRAFICO IS NOT NULL AND NOMBRE_GEOGRAFICO NOT LIKE '' AND NOMBRE_GEOGRAFICO NOT LIKE ' '")
+            nombres_tf=arcpy.management.FeatureVerticesToPoints(temp_TelefNamed, os.path.join(entrada,'temp_TelefNamed_vertex'), "BOTH_ENDS")
+            #nombres_ds=arcpy.management.JoinField( os.path.join(GDB_input,'temp_DrenajesencNamed_vertex'), "FID", temp_DrenajesencNamed, "OBJECTID", "NOMBRE_GEOGRAFICO", "NOT_USE_FM", None)
+            return nombres_tf
+        def obtener_nombres_eje_nom(lyr_poly):
+            #Uso:Genera una tabla con los vertices extremos de los drenaje sencillo que tienen 
+            arcpy.AddMessage("   ...Extrayendo nombres de Eje_Nomenclatura")
+            global entrada
+            arcpy.env.workspace=entrada
+            temp_EjeNamed=arcpy.management.SelectLayerByAttribute('Toponimos/Eje_Nomenclatura','NEW_SELECTION', where_clause="NOMENCLATURA IS NOT NULL AND NOMENCLATURA NOT LIKE '' AND NOMENCLATURA NOT LIKE ' '")
+            nombres_eje=arcpy.management.FeatureVerticesToPoints(temp_EjeNamed, os.path.join(entrada,'temp_EjeNamed_vertex'), "BOTH_ENDS")
+            #nombres_ds=arcpy.management.JoinField( os.path.join(GDB_input,'temp_DrenajesencNamed_vertex'), "FID", temp_DrenajesencNamed, "OBJECTID", "NOMBRE_GEOGRAFICO", "NOT_USE_FM", None)
+            return nombres_eje
+        def filtrarsolonombres(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="NOMBRE_GEOGRAFICO IS NOT NULL and NOMBRE_GEOGRAFICO NOT LIKE '' AND NOMBRE_GEOGRAFICO NOT LIKE ' '")
+            return layercontoponimia
+        def filtrarsolonombres_1(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'SUBSET_SELECTION', where_clause="NOMBRE_GEOGRAFICO IS NOT NULL and NOMBRE_GEOGRAFICO NOT LIKE '' AND NOMBRE_GEOGRAFICO NOT LIKE ' '")
+            return layercontoponimia
+        def filtrarsolonombres_cm(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="CODIGO_NOMBRE = '8304'")
+            return layercontoponimia
+        def filtrarsolonombres_depto(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="CODIGO_NOMBRE = '8309'")
+            return layercontoponimia
+        def filtrarsolonombres_dist(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="CODIGO_NOMBRE = '8310'")
+            return layercontoponimia
+        def filtrarsolonombres_mun(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="CODIGO_NOMBRE = '8312'")
+            return layercontoponimia
+        def filtrarsolonombres_cp(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="CODIGO_NOMBRE = '8329'")
+            return layercontoponimia
+        def filtrarsolonombres_piscina_1(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO = '3901' Or TIPO = '3902'")
+            return layercontoponimia
+        def filtrarsolonombres_piscina_2(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO = '3903' Or TIPO = '3904'")
+            return layercontoponimia
+        def filtrarsolonombres_piscina_1(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO = '3901' Or TIPO = '3902'")
+            return layercontoponimia
+        def filtrarsolonombres_piscina_2(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO = '3903' Or TIPO = '3904'")
+            return layercontoponimia
+        def Construccion_Agua_L_Muro1(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO_CONSTRUCCION_AGUA = 3303 Or TIPO_CONSTRUCCION_AGUA = 5301 Or TIPO_CONSTRUCCION_AGUA = 5302 Or TIPO_CONSTRUCCION_AGUA = 5303 Or TIPO_CONSTRUCCION_AGUA = 5304")
+            return layercontoponimia
+        def Construccion_Agua_L_Hidrografia2(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO_CONSTRUCCION_AGUA = 5103")
+            return layercontoponimia
+        def Construccion_Agua_L_Hidrografia3(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO_CONSTRUCCION_AGUA = 5350")
+            return layercontoponimia
+        def Construccion_Agua_R_Muro1(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO_CONSTRUCCION_AGUA = 5301 Or TIPO_CONSTRUCCION_AGUA = 5302 Or TIPO_CONSTRUCCION_AGUA = 5303 Or TIPO_CONSTRUCCION_AGUA = 5304")
+            return layercontoponimia
+        def Construccion_Agua_R_Transporte(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO_CONSTRUCCION_AGUA = 3303")
+            return layercontoponimia
+        def Construccion_Agua_R_Hidrografia4(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO_CONSTRUCCION_AGUA = 5103")
+            return layercontoponimia
+        def Construccion_Agua_R_NombresGeograficos(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO_CONSTRUCCION_AGUA = 5350")
+            return layercontoponimia
+        def Construccion_P_Constr_P(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="CODIGO_USO_EDIFICACION = '4129' Or CODIGO_USO_EDIFICACION = '5610' Or CODIGO_USO_EDIFICACION = '4112' Or CODIGO_USO_EDIFICACION = '4131' Or CODIGO_USO_EDIFICACION = '3686' Or CODIGO_USO_EDIFICACION = '4119' Or CODIGO_USO_EDIFICACION = '4101' Or CODIGO_USO_EDIFICACION = '3680' Or CODIGO_USO_EDIFICACION = '4166' Or CODIGO_USO_EDIFICACION = '5684' Or CODIGO_USO_EDIFICACION = '5608' Or CODIGO_USO_EDIFICACION = '2320' Or CODIGO_USO_EDIFICACION = '4165'")
+            return layercontoponimia
+        def Construccion_P_NombresGeograficos(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="CODIGO_USO_EDIFICACION = '3413' Or CODIGO_USO_EDIFICACION = '2302'")
+            return layercontoponimia
+        def Construccion_P_Pozo(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="CODIGO_USO_EDIFICACION = '5620' ")
+            return layercontoponimia
+        def Transporte_Puente_L(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="FUNCION_PUENTE = 4300 Or FUNCION_PUENTE = 4301 Or FUNCION_PUENTE = 4302 Or FUNCION_PUENTE = 4303")
+            return layercontoponimia
+        def Transporte_Puente_P(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="FUNCION_PUENTE = 4301 Or FUNCION_PUENTE = 4302 Or FUNCION_PUENTE = 4300 Or FUNCION_PUENTE = 4303")
+            return layercontoponimia
+        def Terminal_P(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="FUNCION_PUENTE = 4301 Or FUNCION_PUENTE = 4302 Or FUNCION_PUENTE = 4300 Or FUNCION_PUENTE = 4303")
+            return layercontoponimia
+        def Torre_NGeogr(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO = 2804 Or TIPO = 2805")
+            return layercontoponimia
+        def Torre_PDistr(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO = 2803")
+            return layercontoponimia
+        def Tuberia_NGeogr(lyr_poly):
+            layercontoponimia=arcpy.management.SelectLayerByAttribute(lyr_poly,'NEW_SELECTION', where_clause="TIPO_FLUIDO = 4101 Or TIPO_FLUIDO = 4102 Or TIPO_FLUIDO = 9999 Or TIPO_FLUIDO = 4104 Or TIPO_FLUIDO = 4103")
+            return layercontoponimia
+        arcpy.AddMessage("Migrando la GDB: {0}".format(gdbs))
+        arcpy.env.workspace=entrada  
+        datasets = arcpy.ListDatasets(feature_type='feature')
+        for ds in datasets:
+            for fc in arcpy.ListFeatureClasses(feature_dataset=ds):
+                arcpy.AddMessage("Revisando las topologias de {0}".format(fc))
+                arcpy.management.RepairGeometry(fc,validation_method= "OGC")
+                fclass = arcpy.Describe(fc)
+                if fclass.shapeType == "Polyline":
+                    select = arcpy.management.SelectLayerByAttribute(fc,'NEW_SELECTION', where_clause="SHAPE_Length < 2 ")
+                    arcpy.management.DeleteRows(select)
+                    arcpy.AddMessage("Borrando Lineas Con valor Nulo")
+                elif fclass.shapeType == "Polygon":
+                    select = arcpy.management.SelectLayerByAttribute(fc,'NEW_SELECTION', where_clause="SHAPE_Area < 2 ")
+                    arcpy.AddMessage("Borrando Poligonos Con valor Nulo")
+                    arcpy.management.DeleteRows(select)
+                else:
+                    pass
+        arcpy.AddMessage("Geometrias Reparadas")
+        ############################################################################# Banco_Arena:
+        edit = arcpy.da.Editor(GDB_output)
+        edit.startEditing(False, True)
+        edit.startOperation()
+        arcpy.AddMessage("{0} Banco_Arena:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Banco_Arena',['SHAPE@','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/BArena'),['SHAPE@','BAIdentif','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1]=row[1]
+                    row_list[2]= 1   #1-> Banco_Arena
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Banco_Arena")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Banco_Arena'),['SHAPE@','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 11  #11-> Vivienda  ciudad y territorio
+                    row_list[3]= 8   #8-> Banco de arena
+                    row_list[4]= 11  #11> Vivienda  ciudad y territorio
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################# Cascada:
+        arcpy.AddMessage("{0} Cascada:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Cascada'),['SHAPE@','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 21  #21-> Cascada
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################# Cienaga:
+        arcpy.AddMessage("{0} Cienaga:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Cienaga',['SHAPE@','PROYECTO','PROYECTO','PROYECTO']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/DAgua_R'),['SHAPE@','DAIdentif','DATipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 4   #4-> Cienaga
+                    row_list[3]= 4   #4-> Cienaga
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Cienaga")
+        ############################################################################## Cienaga_P:
+        arcpy.AddMessage("{0} Cienaga_P:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Cienaga_P'),['SHAPE@','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 8   #8-> Deposito de Agua
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Drenaje_Doble:
+        arcpy.AddMessage("{0} Drenaje_Doble:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Drenaje_Doble',['SHAPE@','PK_CUE','NOMBRE_GEOGRAFICO','TIPO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/Drenaj_R'),['SHAPE@','DIdentif','DNombre','DTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[3]==  0:   ##condicionales para los tipos
+                        row_list[3]= 1 #Cuerpo de agua
+                        row_list[4] = 1
+                    elif row_list[3]== 1:
+                        row_list[3]= 2 # Lecho Seco
+                        row_list[4] = 2
+                    else:
+                        row_list[3]= 3 # Canal
+                        row_list[4] = 3
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Drenaje_Doble")
+        nombres_dd=obtener_nombres_drenajes_pol('Superficies_Agua/Drenaje_Doble')  #genera una tabla con los vertices extremos de los drenaje dobles que tienen nombre 
+        i=0
+        with arcpy.da.SearchCursor(nombres_dd,['SHAPE@','NOMBRE_GEOGRAFICO', 'NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list) 
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        arcpy.Delete_management(nombres_dd)
+        ############################################################################## Drenaje_Sencillo:
+        arcpy.AddMessage("{0} Drenaje_Sencillo:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Drenaje_Sencillo',['SHAPE@','PK_CUE','NOMBRE_GEOGRAFICO','ESTADO_DRENAJE','DISPERSION','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/Drenaj_L'),['SHAPE@','DIdentif','DNombre','DEstado','DDisperso','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[3]== 5102 and row_list[4]== "1":   ## Intermintente Disperso 
+                        row_list[3]= 2
+                        row_list[4]= "1"
+                        row_list[5]  = 2
+                    elif row_list[3]== 5102 and row_list[4]== "0":   ## Intermitente No Disperso
+                        row_list[3]= 2
+                        row_list[4]= "2"
+                        row_list[5]  = 1
+                    elif row_list[3]== 5101 and row_list[4]== "1" : ## Permanente Disperso
+                        row_list[3]= 1
+                        row_list[4]= "1"
+                        row_list[5]  = 4
+                    elif row_list[3]== 5101 and row_list[4]== "0" : ## Permanente No Disperso
+                        row_list[3]= 1
+                        row_list[4]= "2"
+                        row_list[5]  = 3
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Drenaje_Sencillo")
+        nombres_ds=obtener_nombres_drenajes_lin('Superficies_Agua/Drenaje_Sencillo')  #genera una tabla con los vertices extremos de los drenaje sencillo que tienen nombre 
+        i=0
+        with arcpy.da.SearchCursor(nombres_ds,['SHAPE@','NOMBRE_GEOGRAFICO', 'NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        arcpy.Delete_management(nombres_ds)
+        ############################################################################## Embalse:
+        arcpy.AddMessage("{0} Embalse:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Embalse',['SHAPE@','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/DAgua_R'),['SHAPE@','DAIdentif','DATipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 2   #2-> Embalse
+                    row_list[3]= 2   #2-> Embalse
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Embalse")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Embalse'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 8   #8-> Deposito de Agua
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Humed<al:
+        arcpy.AddMessage("{0} Humedal:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Humedal',['SHAPE@','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/Humeda'),['SHAPE@','HIdentif','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 1   #1-> Humedal
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Humedal")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Humedal'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 13   #8-> Humedal
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Isla:
+        arcpy.AddMessage("{0} Isla:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Isla',['SHAPE@','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/Isla'),['SHAPE@','IsIdentif','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 1   #1-> Isla
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Isla")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Isla'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 10   #8-> Isla
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Jaguey_P:
+        arcpy.AddMessage("{0} Jaguey_P:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Jaguey_P',['SHAPE@','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/DAgua_P'),['SHAPE@','DAIdentif','DATipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 1   #1-> Jaguey
+                    row_list[3]= 1   #1-> Jaguey
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Jaguey_P")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Jaguey_P'),['SHAPE@','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 8   #8-> Deposito de Agua
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Jaguey_R:
+        arcpy.AddMessage("{0} Jaguey_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Jaguey_R',['SHAPE@','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/DAgua_R'),['SHAPE@','DATipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1]= 6   #6-> Jaguey
+                    row_list[2]= 6   #6-> Jaguey
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Jaguey_R")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Jaguey_R'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 8   #8-> Deposito de Agua
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Laguna:
+        arcpy.AddMessage("{0} Laguna:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Laguna',['SHAPE@','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/DAgua_R'),['SHAPE@','DATipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1]= 1   #6-> Laguna
+                    row_list[2]= 1   #6-> Laguna
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Laguna")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Laguna'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 8   #8-> Deposito de Agua
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Linea_Mar:
+        arcpy.AddMessage("{0} Linea_Mar:".format(arrow))
+        i=0
+        try:
+            with arcpy.da.SearchCursor('Superficies_Agua/Linea_Mar',['SHAPE@','PROYECTO']) as sCur:
+                with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/LCoste'),['SHAPE@','RuleID']) as iCur:
+                    for row in sCur:
+                        i+=1
+                        row_list= list(row)
+                        row_list[0]= row[0].projectAs('9377')
+                        row_list[1]= 1   #1-> Linea_costera
+                        row=tuple(row_list)
+                        iCur.insertRow(row)
+            registrosmigrados(i, "Linea_Mar")
+        except:
+            arcpy.AddMessage("No se encontró la capa Linea_Mar. Se buscará Linea_Costera...")
+            with arcpy.da.SearchCursor('Superficies_Agua/Linea_Costera',['SHAPE@','PROYECTO']) as sCur:
+                with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/LCoste'),['SHAPE@','RuleID']) as iCur:
+                    for row in sCur:
+                        i+=1
+                        row_list= list(row)
+                        row_list[0]= row[0].projectAs('9377')
+                        row_list[1]= 1   #1-> Linea_costera
+                        row=tuple(row_list)
+                        iCur.insertRow(row)
+            registrosmigrados(i, "Linea_Costera")
+        else:
+            arcpy.AddMessage("No se encontró la capa Linea_Mar ni Linea_Costera.")
+        ############################################################################## Madrevieja_L:
+        arcpy.AddMessage("{0} Madrevieja_L:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Madrevieja_L',['SHAPE@','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/DAgua_L'),['SHAPE@','DATipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1]= 1   #7->Madrevieja
+                    row_list[2]= 1   #7> Madrevieja
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Madrevieja_L")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Madrevieja_L'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 8   #8-> Deposito de Agua
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Madrevieja_R:
+        arcpy.AddMessage("{0} Madrevieja_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Madrevieja_R',['SHAPE@','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/DAgua_R'),['SHAPE@','DATipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1]= 7   #7->Madrevieja
+                    row_list[2]= 7   #7> Madrevieja
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Madrevieja_R")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Madrevieja_R'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 8   #8-> Deposito de Agua
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Manantial:
+        arcpy.AddMessage("{0} Manantial:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Manantial'),['SHAPE@','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= None   #8-> Null
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Manglar:
+        arcpy.AddMessage("{0} Manglar:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Manglar',['SHAPE@','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/Mangla'),['SHAPE@','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1]= 1   #1->Manglar
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Manglar")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Manglar'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 9   #9-> Manglar
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Morichal:
+        arcpy.AddMessage("{0} Morichal:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Morichal'),['SHAPE@','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= None   #8-> Null
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Otros_Cuerpos_Agua:
+        arcpy.AddMessage("{0} Otros_Cuerpos_Agua:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Otros_Cuerpos_Agua',['SHAPE@','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/DAgua_R'),['SHAPE@','DATipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1]= 8   #8->Otros_Cuerpos_Agua
+                    row_list[2]= 8   #8> Otros_Cuerpos_Agua
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Otros_Cuerpos_Agua")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Otros_Cuerpos_Agua'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 8   #8-> Deposito de Agua
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Pantano:
+        arcpy.AddMessage("{0} Pantano:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Superficies_Agua/Pantano',['SHAPE@','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/DAgua_R'),['SHAPE@','DATipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1]= 5   #5->Panrano
+                    row_list[2]= 5   #5> Panrano
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Pantano")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Pantano'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','PK_CUE','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 8   #8-> Deposito de Agua
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ############################################################################## Raudal_Rapido:
+        arcpy.AddMessage("{0} Raudal_Rapido:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Superficies_Agua/Raudal_Rapido'),['SHAPE@','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','PK_CUE']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID','NGIORelaci']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row_list[3]= 23   #23-> Raudal
+                    row_list[4]= 1   #1-> Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ###########################################################################################
+        # Dataset_Transporte
+        arcpy.AddMessage("{0} Dataset Area Maritima Fluvial Terrestre ... ".format(hasht))
+        ########################################################################################### Via 
+        arcpy.AddMessage("{0} Via:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Transporte_Terrestre/Via',['SHAPE@','TIPO_VIA','ESTADO_SUPERFICIE','NUMERO_CARRILES','ACCESIBILIDAD','RuleID','OBJECTID','SHAPE_Length']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Transporte/Via'),['SHAPE@','VTipo','VEstado','VCarril','VAcceso','RuleID','OBJECTID','SHAPE_Length']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[1] == 1:
+                        row_list[1] = 1
+                        row_list[2] = 1
+                        row_list[3] = 1
+                        row_list[4] = 1
+                        row_list[5] =  row_list[1]
+                    elif row_list[1] == 2:
+                        row_list[1] = 1
+                        row_list[2] = 2
+                        row_list[3] = 1
+                        row_list[4] = 1 
+                        row_list[5] =  row_list[1]
+                    elif row_list[1] == 3:
+                        row_list[1] = 2
+                        row_list[2] = 1
+                        row_list[3] = 2
+                        row_list[4] = 1
+                        row_list[5] =  row_list[1]
+                    elif row_list[1] == 4:
+                        row_list[1] = 2
+                        row_list[2] = 2
+                        row_list[3] = 2
+                        row_list[4] = 1
+                        row_list[5] =  row_list[1]
+                    elif row_list[1] == 5:
+                        row_list[1] = 3
+                        row_list[2] = 3
+                        row_list[3] = 0
+                        row_list[4] = 1
+                        row_list[5] =  row_list[1]
+                    elif row_list[1] == 6:
+                        row_list[1] = 4
+                        row_list[2] = 4
+                        row_list[3] = 0
+                        row_list[4] = 2
+                        row_list[5] =  row_list[1]
+                    elif row_list[1] == 7:
+                        row_list[1] = 6
+                        row_list[2] = 4
+                        row_list[3] = 0
+                        row_list[4] = 0
+                        row_list[5] =  row_list[1]
+                    elif row_list[1] == 8:
+                        row_list[1] = 7
+                        row_list[2] = 0
+                        row_list[3] = 0
+                        row_list[4] = 0
+                        row_list[5] =  row_list[1]                       
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Via")
+        nombres_via=obtener_nombres_via('Transporte_Terrestre/Via')  #genera una tabla con los vertices extremos de los drenaje sencillo que tienen nombre 
+        i=0
+        with arcpy.da.SearchCursor(nombres_via,['SHAPE@','NOMBRE_GEOGRAFICO', 'NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 9   #9-> Transporte
+                    row_list[3]= 1   #1-> Subtipo Via
+                    row_list[4] = 9   # RuleID Transporte
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        arcpy.Delete_management(nombres_via)
+        ########################################################################################### Limite_Via
+        arcpy.AddMessage("{0} Limite_Via:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Transporte_Terrestre/Limite_Via',['SHAPE@','TIPO_LIMITE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Transporte/LVia'),['SHAPE@','LVTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[1] == 3302:
+                        row_list[1] = 1
+                        row_list[2] = row_list[1] 
+                    elif row_list[1] == 3303:
+                        row_list[1] = 2
+                        row_list[2] = row_list[1] 
+                    elif row_list[1] == 3304:
+                        row_list[1] = 3
+                        row_list[2] = row_list[1]       
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Limite_Via")
+        ########################################################################################## Cicloruta
+        arcpy.AddMessage("{0} Cicloruta:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Transporte_Terrestre/Cicloruta',['SHAPE@','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Transporte/LVia'),['SHAPE@','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Cicloruta")
+        ########################################################################################## Via_Ferrea
+        arcpy.AddMessage("{0} Via_Ferrea:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Transporte_Terrestre/Via_Ferrea',['SHAPE@','TIPO_VIA_FERREA', 'RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Transporte/VFerre'),['SHAPE@','VFTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[1] == 1482:
+                        row_list[1] = 1
+                    elif row_list[1] == 1480:
+                        row_list[1] = 1
+                    else: 
+                        row_list[1] = 2
+                    row_list[2] = 1
+                    iCur.insertRow(row)
+        registrosmigrados(i, "VFerrea")
+        ########################################################################################## Teleferico
+        # arcpy.AddMessage("{0} Teleferico:".format(arrow))
+        # i=0
+        # with arcpy.da.SearchCursor('Transporte_Terrestre/Teleferico',['SHAPE@','RuleID']) as sCur:
+        #     with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Transporte/Telefe'),['SHAPE@','RuleID']) as iCur:
+        #         for row in sCur:
+        #             i+=1
+        #             row_list= list(row)
+        #             row_list[0]= row[0].projectAs('9377')
+        #             if row_list[1] == 1482:
+        #                 row_list[1] = 1
+        #             elif row_list[1] == 1480:
+        #                 row_list[1] = 1
+        #             else: 
+        #                 row_list[1] = 2
+        #             row_list[2] = 1
+        #             iCur.insertRow(row)
+        # registrosmigrados(i, "Teleferico")
+        # i=0
+        nombres_telef=obtener_nombres_telef('Transporte_Terrestre/Teleferico')  #genera una tabla con los vertices extremos de los drenaje sencillo que tienen nombre 
+        i=0
+        with arcpy.da.SearchCursor(nombres_telef,['SHAPE@','NOMBRE_GEOGRAFICO', 'NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 9   #9-> Transporte
+                    row_list[3]= 6   #1-> Subtipo Via
+                    row_list[4] = 9   # RuleID Transporte
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################## Puerto_R
+        arcpy.AddMessage("{0} Puerto_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Transporte_Maritimo_Fluvial/Puerto_R',['SHAPE@','PROYECTO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Constr_R'),['SHAPE@','CTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 2
+                    row_list[2] = 2
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Puerto_R")
+        ########################################################################################### Puerto_P
+        arcpy.AddMessage("{0} Puerto_P:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Transporte_Maritimo_Fluvial/Puerto_P',['SHAPE@','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Constr_P'),['SHAPE@','CTipo','CCategor','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 2
+                    row_list[2] = 17
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Constr_P")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Transporte_Maritimo_Fluvial/Puerto_P'),['SHAPE@','NOMBRE_GEOGRAFICO', 'NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 9   #9-> Transporte
+                    row_list[3]= 11   #1-> Subtipo Puerto
+                    row_list[4] = 9   # RuleID Transporte
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################## Aeropuerto_R
+        arcpy.AddMessage("{0} Aeropuerto_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Transporte_Aereo/Aeropuerto_R',['SHAPE@','PROYECTO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Constr_R'),['SHAPE@','CTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 2
+                    row_list[2] = 2
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Constr_R")
+        ########################################################################################### Aeropuerto_P
+        arcpy.AddMessage("{0} Aeropuerto_P:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Transporte_Aereo/Aeropuerto_P',['SHAPE@','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Constr_P'),['SHAPE@','CTipo','CCategor','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 2 # Contruccion Tipo Convencional
+                    row_list[2] = 17 # Contruccion Convencional subtipo Otra construccion
+                    row_list[3] = 2
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Constr_P")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Transporte_Aereo/Aeropuerto_P'),['SHAPE@','NOMBRE_GEOGRAFICO', 'NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 9   #9-> Transporte
+                    row_list[3]= 5   #1-> Subtipo Via
+                    row_list[4] = 9   # RuleID Transporte
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Helipuerto_P
+        arcpy.AddMessage("{0} Helipuerto_P:".format(arrow))
+        with arcpy.da.SearchCursor(filtrarsolonombres('Transporte_Aereo/Helipuerto_P'),['SHAPE@','NOMBRE_GEOGRAFICO', 'NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2]= 9   #9-> Transporte
+                    row_list[3]= 8   #1-> Helipuerto
+                    row_list[4] = 9   # RuleID Transporte
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Helipuerto_R
+        # arcpy.AddMessage("{0} Helipuerto_R:".format(arrow))
+        # i=0
+        # with arcpy.da.SearchCursor('Transporte_Aereo/Helipuerto_R',['SHAPE@','PK_CUE','RuleID']) as sCur:
+        #     with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Constr_P'),['SHAPE@','CTipo','RuleID']) as iCur:
+        #         for row in sCur:
+        #             i+=1
+        #             row_list= list(row)
+        #             row_list[0]= row[0].projectAs('9377').centroid
+        #             row_list[1] = 2 # Contruccion Tipo Convencional
+        #             row_list[2] = 2
+        #             iCur.insertRow(row)
+        # registrosmigrados(i, "Constr_R")
+        # i=0
+        # with arcpy.da.SearchCursor(filtrarsolonombres('Transporte_Aereo/Helipuerto_R'),['SHAPE@','NOMBRE_GEOGRAFICO', 'NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+        #     with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+        #         for row in sCur:
+        #             i+=1
+        #             row_list= list(row)
+        #             row_list[0]= row[0].projectAs('9377').centroid
+        #             row_list[2]= 9   #9-> Transporte
+        #             row_list[3]= 8   #1-> Helipuerto
+        #             row_list[4] = 9   # RuleID Transporte
+        #             row=tuple(row_list)
+        #             iCur.insertRow(row)
+        # registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Pista_Aterrizaje_R
+        arcpy.AddMessage("{0} Pista_Aterrizaje_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Transporte_Aereo/Pista_Aterrizaje_R',['SHAPE@','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/ZDura'),['SHAPE@','ZDTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 2 # Zona dura tipo pista de aterrizaje
+                    row_list[2] = 1
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Constr_R")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Transporte_Aereo/Pista_Aterrizaje_R'),['SHAPE@','NOMBRE_GEOGRAFICO', 'NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 9   #9-> Transporte
+                    row_list[3]= 10   #1-> Helipuerto
+                    row_list[4] = 9   # RuleID Transporte
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ###########################################################################################
+        # Dataset_Topomi,os
+        arcpy.AddMessage("{0} Dataset Toponimos ... ".format(hasht))
+        ########################################################################################### Costero_Insular 
+        arcpy.AddMessage("{0} Costero_Insular:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Toponimos/Costero_Insular'),['SHAPE@','NOMBRE_GEOGRAFICO','CODIGO_NOMBRE','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377') 
+                    row_list[2] = 1  # Ambiente y Desarrollo Sostenible
+                    if row_list[3] == "8410": #Brazo
+                        row_list[3] = 17
+                    elif row_list[3] == "8413": #Canal
+                        row_list[3] = 18
+                    elif row_list[3] == "8427": #Oceano
+                        row_list[3] = 6
+                    else:
+                        row_list[3] = 5 # Costero Insular
+                    row_list[4]=  1  # Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        # ########################################################################################## Eje_Nomenclatura
+        # arcpy.AddMessage("{0} Eje_Nomenclatura:".format(arrow))
+        # i=0
+        # nombres_eje_nom=obtener_nombres_eje_nom('Toponimos/Eje_Nomenclatura')  #genera una tabla con los vertices extremos de los drenaje sencillo que tienen nombre 
+        # with arcpy.da.SearchCursor(nombres_eje_nom,['SHAPE@','NOMENCLATURA','NOMENCLATURA','NOMENCLATURA','NOMENCLATURA']) as sCur:
+        #     with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+        #         for row in sCur:
+        #             i+=1
+        #             row_list= list(row)
+        #             row_list[0]= row[0].projectAs('9377') 
+        #             row_list[2] = 9  # Transporte
+        #             row_list[3] = 4 
+        #             row_list[4]=  9  # Transporte
+        #             row=tuple(row_list)
+        #             iCur.insertRow(row)
+        # registrosmigrados(i, "Nombre_Geografico")
+        ######################################################################################### Nomenclatura
+        arcpy.AddMessage("{0} Nomenclatura:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Toponimos/Nomenclatura'),['SHAPE@','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO','NOMBRE_GEOGRAFICO']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377') 
+                    row_list[2] = 9  # Transporte
+                    row_list[3] = 4 
+                    row_list[4]=  9  # Transporte
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Orografia
+        arcpy.AddMessage("{0} Orografia:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Toponimos/Orografia'),['SHAPE@','NOMBRE_GEOGRAFICO','CODIGO_NOMBRE','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377') 
+                    row_list[2] = 1  # Ambiente y Desarrollo Sostenible
+                    row_list[3] = 7  # Orografia
+                    row_list[4] = 1  # Ambiente y Desarrollo Sostenible
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ###########################################################################################
+        # Dataset_Transporte
+        arcpy.AddMessage("{0} Entidades_Territoriales_y_Unidades_Administrativas... ".format(hasht))
+        ########################################################################################### Administrativo_P
+        arcpy.AddMessage("{0} Administrativo_P:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_P'),['SHAPE@','NOMBRE_GEOGRAFICO', 'CODIGO_NOMBRE','CODIGO_NOMBRE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    if row_list[2] in ["8302","8313","8314","8321","8319"]:
+                        row_list[2] = 1 # Ambiente y desarrollo Sostenible 
+                        row_list[4] = 1 # RuleID Ambiente y desarrollo Sostenible
+                        if row_list[3] == "8302": 
+                            row_list[3] = 1 #Parque Natural
+                        elif row_list[3] == "8313":
+                            row_list[3] = 2 # Parque Arqueologico
+                        elif row_list[3] == "8314":
+                            row_list[3] = 1 # Parque Natural 
+                        elif row_list[3] == "8321":
+                            row_list[3] = 3 # Santuario de fuana y fllora
+                        else:
+                            row_list[3] = 4 # Reservorio natural o forestal
+                    elif row_list[2] in ["8301","8303","8304","8324","8307","8308","8309","8310","8311","8312","8315","8317","8322","8325","8327","8328","8329"]:
+                        row_list[2] = 10 # Unidad Administrativa
+                        row_list[4] = 10 # Unidad Administrativa
+                        if row_list[3] == "8301":
+                            row_list[3] = 4
+                        elif row_list[3] == "8303":
+                            row_list[3] = 12
+                        elif row_list[3] == "8304":
+                            row_list[3] = 6
+                        elif row_list[3] == "8324":
+                            row_list[3] = 8
+                        elif row_list[3] == "8307":
+                            row_list[3] = 9
+                        elif row_list[3] == "8308":
+                            row_list[3] = 9
+                        elif row_list[3] == "8309":
+                            row_list[3] = 2
+                        elif row_list[3] == "8310":
+                            row_list[3] = 3
+                        elif row_list[3] == "8311":
+                            row_list[3] = 11
+                        elif row_list[3] == "8315":
+                            row_list[3] = None
+                        elif row_list[3] == "8317":
+                            row_list[3] = 1
+                        elif row_list[3] == "8322":
+                            row_list[3] = 14
+                        elif row_list[3] == "8325":
+                            row_list[3] = None
+                        elif row_list[3] == "8327":
+                            row_list[3] = 13
+                        elif row_list[3] == "8328":
+                            row_list[3] = 15
+                        else:
+                            row_list[3] = 7
+                    elif row_list[2] in ["8318","8320","8306","8350","8316","8351","8305"]:
+                        row_list[2] = 11 # Vivienda Ciudad y Territorio
+                        row_list[4] = 11 # Vivienda Ciudad y Territorio
+                        if row_list[3] == "8318":
+                            row_list[3] = 3
+                        elif row_list[3] == "8320":
+                            row_list[3] = 3
+                        elif row_list[3] == "8306":
+                            row_list[3] = 4
+                        elif row_list[3] == "8350":
+                            row_list[3] = 2
+                        elif row_list[3] == "8316":
+                            row_list[3] = 5
+                        elif row_list[3] == "8351":
+                            row_list[3] = 6
+                        else:
+                            row_list[3] = 1
+                    else:
+                        row_list[2] = 8 # Seguridad y defensa
+                        row_list[3] = 2 # Seguridad y defensa
+                        row_list[4] = 8 # Seguridad y defensa
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Administrativo_R - Cabecera Municipal
+        arcpy.AddMessage("{0} Administrativo_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_cm('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_R'),['SHAPE@','NOMBRE_GEOGRAFICO', 'RuleID','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'OrdenamientoTerritorial/MDANMu'),['SHAPE@','MDANMNombr','MDANMCateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2] = 4
+                    row_list[3] = 4
+                    iCur.insertRow(row)
+        registrosmigrados(i, "MDANMu")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres(filtrarsolonombres_cm('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_R')),['SHAPE@','NOMBRE_GEOGRAFICO','RuleID','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid 
+                    row_list[2] = 10  # Unidad administrativa
+                    row_list[3] = 6  # Cabecera Municipal
+                    row_list[4] = 10  # Unidad administrativa
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Administrativo_R - Departamento
+        arcpy.AddMessage("{0} Administrativo_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_depto('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_R'),['SHAPE@','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'OrdenamientoTerritorial/Depart'),['SHAPE@','DeNombre','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[3] = 1
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Depart")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres(filtrarsolonombres_depto('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_R')),['SHAPE@','NOMBRE_GEOGRAFICO','RuleID','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid 
+                    row_list[2] = 10  # Unidad administrativa
+                    row_list[3] = 2  # Departamento
+                    row_list[4] = 10  # Unidad administrativa
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Administrativo_R - Distrito
+        arcpy.AddMessage("{0} Administrativo_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres(filtrarsolonombres_dist('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_R')),['SHAPE@','NOMBRE_GEOGRAFICO','RuleID','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'OrdenamientoTerritorial/MDANMu'),['SHAPE@','MDANMNombr','MDANMCateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2] = 2
+                    row_list[3] = 2
+                    iCur.insertRow(row)
+        registrosmigrados(i, "MDANMu")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_dist('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_R'),['SHAPE@','NOMBRE_GEOGRAFICO','CODIGO_NOMBRE','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid 
+                    row_list[2] = 10  # Unidad administrativa
+                    row_list[3] = 3  # Distrito
+                    row_list[4] = 10  # Unidad administrativa
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "NombresGeograficos")
+        ########################################################################################### Administrativo_R - Municipios
+        arcpy.AddMessage("{0} Administrativo_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_mun('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_R'),['SHAPE@','NOMBRE_GEOGRAFICO','RuleID','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'OrdenamientoTerritorial/MDANMu'),['SHAPE@','MDANMNombr','MDANMCateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2] = 3
+                    row_list[3] = 3
+                    iCur.insertRow(row)
+        registrosmigrados(i, "MDANMu")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(filtrarsolonombres_mun('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_R')),['SHAPE@','NOMBRE_GEOGRAFICO','CODIGO_NOMBRE','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid 
+                    row_list[2] = 10  # Unidad administrativa
+                    row_list[3] = 5  # Municipio
+                    row_list[4] = 10  # Unidad administrativa
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "NombresGeograficos")
+        ########################################################################################### Administrativo_R - Centro Poblado
+        arcpy.AddMessage("{0} Administrativo_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_cp('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_R'),['SHAPE@','NOMBRE_GEOGRAFICO','RuleID','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'OrdenamientoTerritorial/MDANMu'),['SHAPE@','MDANMNombr','MDANMCateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2] = 5
+                    row_list[3] = 5
+                    iCur.insertRow(row)
+        registrosmigrados(i, "MDANMu")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(filtrarsolonombres_cp('Entidades_Territoriales_y_Unidades_Administrativas/Administrativo_R')),['SHAPE@','NOMBRE_GEOGRAFICO','CODIGO_NOMBRE','NOMBRE_GEOGRAFICO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid 
+                    row_list[2] = 10  # Unidad administrativa
+                    row_list[3] = 7  # Centro Poblado
+                    row_list[4] = 10  # Unidad administrativa
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "NombresGeograficos")
+        ######################################################################################### Administrativo_R - Limite
+        arcpy.AddMessage("{0} Administrativo_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Entidades_Territoriales_y_Unidades_Administrativas/Limite',['SHAPE@','TIPO_LIMITE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'OrdenamientoTerritorial/LLimit'),['SHAPE@','LLJerarqui','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[1] == 1000:
+                        row_list[1] = 3
+                    elif row_list[1] == 1060:
+                        row_list[1] = 2
+                    else:
+                        row_list[1] = 2
+                    row_list[2] = 1
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Constr_R")
+        ##########################################################################################
+        # Dataset_Transporte
+        arcpy.AddMessage("{0} Edificacion Obra Civil... ".format(hasht))
+        ########################################################################################### Piscina_Hidrografia
+        arcpy.AddMessage("{0} Piscina_Hidrografia:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Edificacion_ObraCivil/Piscina',['SHAPE@','RuleID','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/DAgua_R'),['SHAPE@','DATipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[1] == '3901': #Agricola
+                        row_list[1] = 2 #Reservorio
+                        row_list[2] = 1 #RuleID = Piscina
+                    elif row_list[1] == '3902': #Industrial
+                        row_list[1] = 2
+                        row_list[2] = 1
+                    else:
+                        row_list[2] = 1 
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Piscina_Hidrografia")
+        ########################################################################################### Piscina_ViviendaCiudadTerritorio
+        arcpy.AddMessage("{0} Piscina_ViviendaCiudadTerritorio:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Edificacion_ObraCivil/Piscina',['SHAPE@','PROYECTO','RuleID'] ) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Piscin'),['SHAPE@','PiIdentif','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2] = 1 
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Piscina_ViviendaCiudadTerritorio")
+        ###########################################################################################
+        ############################################################################## Planta_Tratamiento : 
+        arcpy.AddMessage("{0} Planta_Tratamiento:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Edificacion_ObraCivil/Planta_Tratamiento',['SHAPE@','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Constr_P'),['SHAPE@','CTipo','CCategor','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    
+                    row_list[1] = 2 #Convencional
+                    row_list[2] = 3 #Industrial
+                    row_list[3]= 1
+                                                    
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Planta_Tratamiento")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Edificacion_ObraCivil/Planta_Tratamiento'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2]= 2   #1-> Comercio industria y turismo
+                    row_list[3]= 1
+                    row_list[4]= 2
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Construccion_Agua_P 
+        arcpy.AddMessage("{0} Construccion_Agua_P:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Edificacion_ObraCivil/Construccion_Agua_P',['SHAPE@','TIPO_CONSTRUCCION_AGUA','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[1] == 3303:#Embarcadero, Muelle
+                        row_list[1] = 9 #Transporte
+                        row_list[2] = 11 #Puerto
+                        row_list[3] = 9              
+                    elif row_list[1] == 5301:#Compuerta
+                        row_list[1] = 11 #Vivienda ciudad y territorio
+                        row_list[2] = 6 #Sitio de Interes
+                        row_list[3] = 11     
+                    elif row_list[1] == 5302:#Dique
+                        row_list[1] = 11 #Vivienda ciudad y territorio
+                        row_list[2] = 6 #Sitio de Interes
+                        row_list[3] = 11                  
+                    elif row_list[1] == 5303:#Presa
+                        row_list[1] = 11 #Vivienda ciudad y territorio
+                        row_list[2] = 6 #Sitio de Interes
+                        row_list[3] = 11     
+                    elif row_list[1] == 5304:#Malecón
+                        row_list[1] = 11 #Vivienda ciudad y territorio
+                        row_list[2] = 6 #Sitio de Interes
+                        row_list[3] = 11      
+                    elif row_list[1] == 5350:#Sumidero
+                        row_list[1] = 11 #Vivienda ciudad y territorio
+                        row_list[2] = 6 #Sitio de Interes
+                        row_list[3] = 11      
+                    elif row_list[1] == 5351:#Bocatoma
+                        row_list[1] = 14 #Otro
+                        row_list[2] = 1 #Otro
+                        row_list[3] = 14
+                    
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_Agua_P")
+        ########################################################################################### Construccion_Agua_L_Muro  
+        arcpy.AddMessage("{0} Construccion_Agua_L_Muro:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(Construccion_Agua_L_Muro1('Edificacion_ObraCivil/Construccion_Agua_L'),['SHAPE@','TIPO_CONSTRUCCION_AGUA','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Muro'),['SHAPE@','MuTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1    
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[1] == 3303:#Embarcadero, Muelle
+                        row_list[1] = 5 #Otro
+                        row_list[2] = 1              
+                    elif row_list[1] == 5301:#Compuerta
+                        row_list[1] = 5 #Otro
+                        row_list[2] = 1    
+                    elif row_list[1] == 5302:#Dique
+                        row_list[1] = 5 #Otro
+                        row_list[2] = 1                 
+                    elif row_list[1] == 5303:#Presa
+                        row_list[1] = 5 #Otro
+                        row_list[2] = 1    
+                    elif row_list[1] == 5304:#Malecón
+                        row_list[1] = 5 #Otro
+                        row_list[2] = 1 
+                                                    
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_Agua_L_Muro")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Construccion_Agua_L_Muro1('Edificacion_ObraCivil/Construccion_Agua_L')),['SHAPE@','NOMBRE_GEOGRAFICO','TIPO_CONSTRUCCION_AGUA','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@', 'NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    if row_list[2] == 3303:#Embarcadero, Muelle
+                        row_list[2] = 9 #Transporte
+                        row_list[3] = 11 #Puerto
+                        row_list[3] = 9 #Transporte              
+                    elif row_list[2] == 5301:#Compuerta
+                        row_list[2] = 11 #Vivienda ciudad y territorio
+                        row_list[3] = 6
+                        row_list[4] = 11   
+                    elif row_list[2] == 5302:#Dique
+                        row_list[2] = 11 #Vivienda ciudad y territorio
+                        row_list[3] = 6
+                        row_list[4] = 11                   
+                    elif row_list[2] == 5303:#Presa
+                        row_list[2] = 11 #Vivienda ciudad y territorio
+                        row_list[2] = 6
+                        row_list[4] = 11      
+                    elif row_list[2] == 5304:#Malecón
+                        row_list[2] = 11 #Vivienda ciudad y territorio
+                        row_list[3] = 6
+                        row_list[4] = 11   
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################## Construccion_Agua_L_Hidrografia
+        arcpy.AddMessage("{0} Construccion_Agua_L_Hidrografia:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(Construccion_Agua_L_Hidrografia2('Edificacion_ObraCivil/Construccion_Agua_L'),['SHAPE@','TIPO_CONSTRUCCION_AGUA','PK_CUE','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/Drenaj_L'),['SHAPE@','DIdentif','DNombre','DEstado','DDisperso','RuleID']) as iCur:
+                #with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/Drenaj_L'),['SHAPE@','DIdentif','DNombre','DEstado','DDisperso','RuleID']) as iCur: ['SHAPE@','DEstado','RuleID']
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2] = None
+                    row_list[3] = 3
+                    row_list[4] = None
+                    row_list[5] = 5                                         
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_Agua_L_Hidrografia")
+        ##############################################################################Construccion_Agua_L_Hidrografia:
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Construccion_Agua_L_Hidrografia2('Edificacion_ObraCivil/Construccion_Agua_L')),['SHAPE@','NOMBRE_GEOGRAFICO','TIPO_CONSTRUCCION_AGUA','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@', 'NGNPrincip', 'NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2] = 1 #Ambiente y Desarrollo Sostenible
+                    row_list[3] = None #Depende de la clasififcación Toponimia / Null / 13 al 24
+                    row_list[4] = 1      
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################## Construccion_Agua_L_NombresGeograficos
+        arcpy.AddMessage("{0} Construccion_Agua_L_NombresGeograficos:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Construccion_Agua_L_Hidrografia3('Edificacion_ObraCivil/Construccion_Agua_L')),['SHAPE@','NOMBRE_GEOGRAFICO','TIPO_CONSTRUCCION_AGUA','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    if row_list[2] == 5350: #Sumidero
+                        row_list[2] = 14
+                        row_list[3] = 1
+                        row_list[4] = 14                                        
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_Agua_L_NombresGeograficos")
+        ########################################################################################### Construccion_Agua_R_Muro
+        arcpy.AddMessage("{0} Construccion_Agua_R_Muro:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(Construccion_Agua_R_Muro1('Edificacion_ObraCivil/Construccion_Agua_R'),['SHAPE@','TIPO_CONSTRUCCION_AGUA','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Muro'),['SHAPE@','MuTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= ((row[0].boundary()).projectAs('9377'))
+                    if row_list[1] == 5301:#Compuerta
+                        row_list[1] = 5 #Otro
+                        row_list[2] = 1 #Muro                            
+                    elif row_list[1] == 5302:#Dique
+                        row_list[1] = 5 #Otro
+                        row_list[2] = 1 #Muro    
+                    elif row_list[1] == 5303:#Presa
+                        row_list[1] = 5 #Otro
+                        row_list[2] = 1 #Muro                   
+                    elif row_list[1] == 5304:#Malecón
+                        row_list[1] = 5 #Otro
+                        row_list[2] = 1 #Muro      
+                                                            
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_Agua_R_Muro")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Construccion_Agua_R_Muro1('Edificacion_ObraCivil/Construccion_Agua_R')),['SHAPE@', 'NOMBRE_GEOGRAFICO','TIPO_CONSTRUCCION_AGUA','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    
+                    if row_list[2] == 5301:#Compuerta
+                        row_list[2] = 11 #Vivienda ciudad y territorio
+                        row_list[3] = 6 #Sitio de Interes
+                        row_list[4] = 11                            
+                    elif row_list[2] == 5302:#Dique
+                        row_list[2] = 11 #Vivienda ciudad y territorio
+                        row_list[3] = 6 #Sitio de Interes
+                        row_list[4] = 11    
+                    elif row_list[2] == 5303:#Presa
+                        row_list[2] = 11 #Vivienda ciudad y territorio
+                        row_list[3] = 6 #Sitio de Interes
+                        row_list[4] = 11                   
+                    elif row_list[2] == 5304:#Malecón
+                        row_list[2] = 11 #Vivienda ciudad y territorio
+                        row_list[3] = 6 #Sitio de Interes
+                        row_list[4] = 11      
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Construccion_Agua_R_Transporte
+        arcpy.AddMessage("{0} Construccion_Agua_R_Transporte:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(Construccion_Agua_R_Transporte('Edificacion_ObraCivil/Construccion_Agua_R'),['SHAPE@','TIPO_CONSTRUCCION_AGUA','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Transporte/Embarc'),['SHAPE@','EIdentifi','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2] = 1 #Embarcadero                         
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_Agua_R_Transporte")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Construccion_Agua_R_Transporte('Edificacion_ObraCivil/Construccion_Agua_R')),['SHAPE@','NOMBRE_GEOGRAFICO','TIPO_CONSTRUCCION_AGUA','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    
+                    row_list[2] = 9 #Transporte
+                    row_list[3] = 11 #Puerto
+                    row_list[4] = 9                            
+                        
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Construccion_Agua_R_Hidrografia4
+        arcpy.AddMessage("{0} Construccion_Agua_R_Hidrografia_Drenaj_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(Construccion_Agua_R_Hidrografia4('Edificacion_ObraCivil/Construccion_Agua_R'),['SHAPE@','TIPO_CONSTRUCCION_AGUA','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Hidrografia/Drenaj_R'),['SHAPE@','DTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    
+                    row_list[1] = 3 #Canal                      
+                    row_list[2] = 3              
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_Agua_R_Hidrografia_Drenaj_R")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Construccion_Agua_R_Hidrografia4('Edificacion_ObraCivil/Construccion_Agua_R')),['SHAPE@','NOMBRE_GEOGRAFICO','TIPO_CONSTRUCCION_AGUA','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2] = 1 #Ambiente y Desarrollo Sostenible
+                    row_list[3] = None #Depende de la clasififcación Toponimia / Null / 13 al 24
+                    row_list[4] = 1                             
+                        
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Construccion_Agua_R_NombresGeograficos
+        arcpy.AddMessage("{0} Construccion_Agua_R_NombresGeograficos:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Construccion_Agua_R_NombresGeograficos('Edificacion_ObraCivil/Construccion_Agua_L')),['SHAPE@','NOMBRE_GEOGRAFICO','TIPO_CONSTRUCCION_AGUA','TIPO_CONSTRUCCION_AGUA','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2] = 14
+                    row_list[3] = 1
+                    row_list[4] = 14 
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_Agua_R_NombresGeograficos")
+        ########################################################################################### Construccion_P_Constr_P
+        arcpy.AddMessage("{0} Construccion_P_Constr_P:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(Construccion_P_Constr_P('Edificacion_ObraCivil/Construccion_P'),['SHAPE@','CODIGO_USO_EDIFICACION','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Constr_P'),['SHAPE@','CTipo','CCategor','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    
+                    if row_list[1] == '4129':#Iglesia
+                        row_list[1] = 2 #Convencional
+                        row_list[2] = 7 #Religioso
+                        row_list[3] = 2
+                    elif row_list[1] == '5610':#Tanque
+                        row_list[1] = 1 #NoConvencional
+                        row_list[2] = 13 #Tanque                          
+                        row_list[3] = 1 
+                    elif row_list[1] == '4112':#Establecimiento Educativo
+                        row_list[1] = 2 #Convencional
+                        row_list[2] = 4 #Educativo                         
+                        row_list[3] = 2  
+                    elif row_list[1] == '4131':#Hotel
+                        row_list[1] = 2 #Convencional
+                        row_list[2] = 2 #Comercial                          
+                        row_list[3] = 2  
+                    elif row_list[1] == '3686':#Cementerio, Parque Cementerio
+                        row_list[1] = 1 #NoConvencional
+                        row_list[2] = 16 # Cementerio, Parque Cementerio                         
+                        row_list[3] = 1  
+                    elif row_list[1] == '4119':#Salud
+                        row_list[1] = 2 #Institucional
+                        row_list[2] = 5 #Tanque                          
+                        row_list[3] = 2 
+                    elif row_list[1] == '4101':#Otras Construcciones
+                        row_list[1] = 2 #Convencional
+                        row_list[2] = 17 #OtrasConstrucciones                          
+                        row_list[3] = 2  
+                    elif row_list[1] == '3680':#Industria
+                        row_list[1] = 2 #NoConvencional
+                        row_list[2] = 3 #Industrial                          
+                        row_list[3] = 2  
+                    elif row_list[1] == '4166':#Seguridad
+                        row_list[1] = 2 #Convencional
+                        row_list[2] = 5 #Institucional                          
+                        row_list[3] = 2 
+                    elif row_list[1] == '5684':#Molino
+                        row_list[1] = 2 #Convencional
+                        row_list[2] = 3 #Industrial                         
+                        row_list[3] = 2 
+                    elif row_list[1] == '5608':#Silo
+                        row_list[1] = 2 #Convencional
+                        row_list[2] = 3 #Industrial                          
+                        row_list[3] = 2  
+                    elif row_list[1] == '2320':#Sitio de Interés
+                        row_list[1] = 2 #Convencional
+                        row_list[2] = 17 #OtraConstrucción                          
+                        row_list[3] = 2  
+                    elif row_list[1] == '4165':#Monumento
+                        row_list[1] = 1 #NoConvencional
+                        row_list[2] = 17 #OtraConstruccion                          
+                        row_list[3] = 1                     
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_P_Constr_P")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Construccion_P_Constr_P('Edificacion_ObraCivil/Construccion_P')),['SHAPE@','NOMBRE_GEOGRAFICO','CODIGO_USO_EDIFICACION','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    
+                    if row_list[2] == '4129':#Iglesia
+                        row_list[2] = 3 #Cultura y Osio
+                        row_list[3] = 4 #Iglesia
+                        row_list[4] = 17
+                    elif row_list[2] == '5610':#Tanque
+                        row_list[2] = 14 #Otro
+                        row_list[3] = 1 #Otro                          
+                        row_list[4] = 14 #Otro 
+                    elif row_list[2] == '4112':#Establecimiento Educativo
+                        row_list[2] = 5 #Educacion
+                        row_list[3] = 1 #Institución educativa                         
+                        row_list[4] = 5  
+                    elif row_list[2] == '4131':#Hotel
+                        row_list[2] = 2 #Comercio, industria y turismo
+                        row_list[3] = 2 #Hoteleria                          
+                        row_list[4] = 2 #Comercio, industria y turismo
+                    elif row_list[2] == '3686':#Cementerio, Parque Cementerio
+                        row_list[2] = 7 #Salud y protección social
+                        row_list[3] = 6 #Cementerio                         
+                        row_list[4] = 15 #Cementerio  
+                    elif row_list[2] == '4119':#Salud
+                        row_list[2] = 7 #Salud y protección social
+                        row_list[3] = 1 #Hospital                        
+                        row_list[4] = 16 #Hospital - Clinica
+                    elif row_list[2] == '4101':#Otras Construcciones
+                        row_list[2] = 11 #Vivienda ciudad y territorio
+                        row_list[3] = 7 #Vivienda                         
+                        row_list[4] = 11      
+                    elif row_list[2] == '3680':#Industria
+                        row_list[2] = 2 #Comercio industria y turismo
+                        row_list[3] = 1 #industria                          
+                        row_list[4] = 2  
+                    elif row_list[2] == '4166':#Seguridad
+                        row_list[2] = 8 #Seguridad y defensa
+                        row_list[3] = None                          
+                        row_list[4] = 8 
+                    elif row_list[2] == '5684':#Molino
+                        row_list[2] = 2 #Comercio industria y turismo
+                        row_list[3] = 1 #Industria                         
+                        row_list[4] = 2 
+                    elif row_list[2] == '5608':#Silo
+                        row_list[2] = 2 #Comercio industria y comercio
+                        row_list[3] = 1 #Industrial                          
+                        row_list[4] = 2  
+                    elif row_list[2] == '2320':#Sitio de Interés
+                        row_list[2] = 11 #Vivienda ciudad y desarrollo 
+                        row_list[3] = 6 #Sitio de interes                         
+                        row_list[4] = 11  
+                    elif row_list[2] == '4165':#Monumento
+                        row_list[2] = 3 #Cultura y ocio
+                        row_list[3] = 3 #Monumento                         
+                        row_list[4] = 18       
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Nombre_Geografico")
+        ########################################################################################### Construccion_P_NombresGeograficos
+        arcpy.AddMessage("{0} Construccion_P_NombresGeograficos:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Construccion_P_NombresGeograficos('Edificacion_ObraCivil/Construccion_P')),['SHAPE@','NOMBRE_GEOGRAFICO', 'CODIGO_USO_EDIFICACION','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    
+                    if row_list[2] == '3413':#Faro 
+                        row_list[2] = 14 #Otro
+                        row_list[3] = 1 #Otro
+                        row_list[4] = 14 
+                    elif row_list[2] == '2302':#Instalación minera 
+                        row_list[2] = 6 #Minas y energia
+                        row_list[3] = 3 #Otro
+                        row_list[4] = 6    
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_P_NombresGeograficos")
+        ########################################################################################### Construccion_P_Pozo
+        arcpy.AddMessage("{0} Construccion_P_Pozo:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(Construccion_P_Pozo('Edificacion_ObraCivil/Construccion_P'),['SHAPE@','CODIGO_USO_EDIFICACION','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'InfraestructuraServicios/Pozo'),['SHAPE@','PoIdentif','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    
+                    if row_list[1] == '5620':#Pozo
+                        row_list[2] = 1 
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_P_Pozo")
+        arcpy.AddMessage("{0} Construccion_P_NombreGeografico:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Construccion_P_Pozo('Edificacion_ObraCivil/Construccion_P')),['SHAPE@','NOMBRE_GEOGRAFICO','CODIGO_USO_EDIFICACION','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[2] == '5620':#Pozo
+                        row_list[2] = 6 #Minas y energia
+                        row_list[3] = 1 #Pozo
+                        row_list[4] = 6  
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Construccion_P_NombreGeografico")
+        ########################################################################################### Mina_R
+        arcpy.AddMessage("{0} Mina_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Edificacion_ObraCivil/Mina_R',['SHAPE@','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'CoberturaTierra/AExtra'),['SHAPE@','AEIdentif','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    
+                    row_list[2] = 1 
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Mina_R")
+        ###########################################################################################
+        # Dataset_Cobertura_Vegetal
+        arcpy.AddMessage("{0} Cobertura_Vegetal... ".format(hasht))
+        ########################################################################################### Bosque_Grupo_Arboles
+        # arcpy.AddMessage("{0} Bosque_Grupo_Arboles:".format(arrow))
+        # i=0
+        # with arcpy.da.SearchCursor('Cobertura_Vegetal/Bosque_Grupo_Arboles',['SHAPE@','RuleID']) as sCur:
+        #     with arcpy.da.InsertCursor(os.path.join(GDB_output, 'CoberturaTierra/Bosque'),['SHAPE@','RuleID']) as iCur:
+        #         for row in sCur:
+        #             i+=1
+        #             row_list= list(row)
+        #             row_list[0]= row[0].projectAs('9377')
+        #             row_list[1] = 1 
+        #             row=tuple(row_list)
+        #             iCur.insertRow(row)
+        # registrosmigrados(i, "Bosque")
+        ########################################################################################### Zona_Verde
+        arcpy.AddMessage("{0} Zona_Verde:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Cobertura_Vegetal/Zona_Verde',['SHAPE@','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'CoberturaTierra/ZVerde'),['SHAPE@','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 1 
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "ZVerde")
+        ##########################################################################################
+        # Dataset_Indice_Mapas
+        arcpy.AddMessage("{0} Indice_Mapas... ".format(hasht))
+        # ########################################################################################## Indice_Hoja_Cartografica
+        # arcpy.AddMessage("{0} Indice_Hoja_Cartografica:".format(arrow))
+        # i=0
+        # with arcpy.da.SearchCursor('Indice_Mapas/Indice_Hoja_Cartografica',['SHAPE@', 'PLANCHA' , 'HOJA', 'RuleID']) as sCur:
+        #     with arcpy.da.InsertCursor(os.path.join(GDB_output, 'IndiceMapas/Indice'),['SHAPE@', 'Plancha', 'Hoja','RuleID']) as iCur:
+        #         for row in sCur:
+        #             i+=1
+        #             row_list= list(row)
+        #             row_list[0]= row[0].projectAs('9377')
+        #             row_list[3] = 1 
+        #             row=tuple(row_list)
+        #             iCur.insertRow(row)
+        # registrosmigrados(i, "Indice")
+        ########################################################################################## Relieve-Curva_Nivel 
+        # Dataset_Relieve_Curva_Nivel
+        arcpy.AddMessage("{0} Relieve:".format(hasht))
+        ###########################################################################################
+        arcpy.AddMessage("{0} Relieve-Curva_Nivel:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Relieve/Curva_Nivel',['SHAPE@','TIPO_CURVA_NIVEL','ALTURA_SOBRE_NIVEL_MAR','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Elevacion/CNivel'),['SHAPE@','CNTipo','CNAltura','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[1] == 1011:#Intermedia aproximada
+                        row_list[1] = 5 #Intermedia
+                    elif row_list[1] == 1001:#Indice Aproximada 
+                        row_list[1] = 1 #Indice
+                    elif row_list[1] == 1030:#Indice de Depresión 
+                        row_list[1] = 1 #Indice
+                    elif row_list[1] == 1031:#Intemedia de depresión 
+                        row_list[1] = 5 #Intermedia
+                    elif row_list[1] == 1032:#Indice de depresión aploximada 
+                        row_list[1] = 1 #Indice
+                    elif row_list[1] == 1033:#Intemedia de depresión aproximada 
+                        row_list[1] = 5 #Intermedia
+                    elif row_list[1] == 1010:#Intermedia 
+                        row_list[1] = 5 #Intermedia
+                    elif row_list[1] == 1000:#Indice 
+                        row_list[1] = 1 #Indice
+                    else :
+                        row_list[1] = 5 #Intermedia                    
+                    row_list[3] = row_list[1] 
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Relieve-Curva_Nivel")
+        ##########################################################################################  Relieve-Lineas_Demarcacion_Terreno
+        # arcpy.AddMessage("{0} Relieve-Lineas_Demarcacion_Terreno:".format(arrow))
+        # i=0
+        # with arcpy.da.SearchCursor('Relieve/Lineas_Demarcacion_Terreno',['SHAPE@','TIPO_ELEVACION','FUENTE','RuleID']) as sCur:
+        #     with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Elevacion/LDTerr'),['SHAPE@','LDTTIPO','LDTFuente','RuleID']) as iCur:
+        #         for row in sCur:
+        #             i+=1
+        #             row_list= list(row)
+        #             row_list[0]= row[0].projectAs('9377')
+        #             if row_list[1] == '1':#Medida
+        #                 row_list[1] = 1 #medidad
+        #                 row_list[2] = 1 #Lidar
+        #             else :  #Estimada 
+        #                 row_list[1] = 2 #Indice
+        #                 row_list[2] = 1 #Lidar
+        #             row=tuple(row_list)
+        #             iCur.insertRow(row)
+        # registrosmigrados(i, "Relieve-Lineas_Demarcacion_Terreno")
+        #########################################################################################  Otros_Textos
+        arcpy.AddMessage("{0} Otros_Textos:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Impresion/Otros_Textos',['SHAPE@','TEXTO','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                # 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID'
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    
+                    row_list[2] = 14 #Otro
+                    row_list[3] = 1 #Otro
+                    row_list[4] = 14 #Otro
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Otros_Textos")
+        ###########################################################################################  Antena
+        arcpy.AddMessage("{0} Antena:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Instalaciones_Construcciones_Para_Transporte/Antena',['SHAPE@','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'InfraestructuraServicios/PDistr'),['SHAPE@','PDTipo','RuleID']) as iCur:
+                # 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID'
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    
+                    row_list[1] = 1#Antena 
+                    row_list[2] = 1#Antena
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Antena")
+        # ###########################################################################################  Peaje
+        arcpy.AddMessage("{0} Peaje:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Instalaciones_Construcciones_Para_Transporte/Peaje',['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output,  'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2] = 9#Transporte 
+                    row_list[3] = 9#Peaje
+                    row_list[4] = 9#Transporte
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Peaje")
+        ###########################################################################################  Poste
+        arcpy.AddMessage("{0} Poste:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Instalaciones_Construcciones_Para_Transporte/Poste',['SHAPE@','PROYECTO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'InfraestructuraServicios/PDistr'),['SHAPE@','PDTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 2#Poste 
+                    row_list[2] = 2#Poste
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Poste")
+        ###########################################################################################  Puente_L
+        arcpy.AddMessage("{0} Puente_L:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Instalaciones_Construcciones_Para_Transporte/Puente_L',['SHAPE@','FUNCION_PUENTE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Transporte/Puente_L'),['SHAPE@','PuFuncion','RuleID']) as iCur:
+                # 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID'
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[1] == 4300: #Puente peatonal
+                        row_list[1] = 1 #Peatonal
+                        row_list[2] = row_list[1]
+                    elif row_list[1] == 4301:#Puente ferreo
+                        row_list[1] = 2 #Ferreo
+                        row_list[2] = row_list[1] #Ferreo
+                    elif row_list[1] == 4302:#Puente vehicular
+                        row_list[1] = 3 #vehicular
+                        row_list[2] = row_list[1]
+                    else:
+                        row_list[1] = 4 #Alcantarilla Ponton
+                        row_list[2] = row_list[1]
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Puente_L")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Transporte_Puente_L('Instalaciones_Construcciones_Para_Transporte/Puente_L')),['SHAPE@','FUNCION_PUENTE','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    
+                    row_list[2] = 9 #Transporte
+                    row_list[3] = 2 #Puente 
+                    row_list[4] = 9 #Transporte 
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Transporte_Puente_L_NombreGeografico")
+        ###########################################################################################  Puente_P 
+        arcpy.AddMessage("{0} Puente_P:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Instalaciones_Construcciones_Para_Transporte/Puente_P',['SHAPE@','FUNCION_PUENTE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Transporte/Puente_P'),['SHAPE@','PuFuncion','RuleID']) as iCur:
+                # 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID'
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    if row_list[1] == 4300: #Puente peatonal
+                        row_list[1] = 1 #Peatonal
+                        row_list[2] = row_list[1]
+                    elif row_list[1] == 4301:#Puente ferreo
+                        row_list[1] = 2 #Ferreo
+                        row_list[2] = row_list[1] #Ferreo
+                    elif row_list[1] == 4302:#Puente vehicular
+                        row_list[1] = 3 #vehicular
+                        row_list[2] = row_list[1]
+                    else:
+                        row_list[1] = 4 #Alcantarilla Ponton
+                        row_list[2] = row_list[1]
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Puente_P")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Transporte_Puente_P('Instalaciones_Construcciones_Para_Transporte/Puente_P')),['SHAPE@','FUNCION_PUENTE','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    
+                    row_list[2] = 9 #Transporte
+                    row_list[3] = 2 #Puente 
+                    row_list[4] = 9 #Transporte 
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Transporte_Puente_P_NombreGeografico")
+        ###########################################################################################  Red_Alta_Tension 
+        arcpy.AddMessage("{0} Red_Alta_Tension:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Instalaciones_Construcciones_Para_Transporte/Red_Alta_Tension',['SHAPE@','PROYECTO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'InfraestructuraServicios/RATens'),['SHAPE@','RATIdentif','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2] = 1
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Red_Alta_Tension")
+        ###########################################################################################  Terminal_P
+        arcpy.AddMessage("{0} Terminal_P:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Instalaciones_Construcciones_Para_Transporte/Terminal_P',['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Constr_P'),['SHAPE@','CTipo','CCategor','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 2
+                    row_list[2] = 2
+                    row_list[3] = 2
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Terminal_P")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Instalaciones_Construcciones_Para_Transporte/Terminal_P'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    
+                    row_list[2] = 9 #Transporte
+                    row_list[3] = 2 #Puente 
+                    row_list[4] = 9 #Transporte 
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Terminal_P_NombreGeografico")
+        ###########################################################################################  Terminal_R 
+        arcpy.AddMessage("{0} Terminal_R:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Instalaciones_Construcciones_Para_Transporte/Terminal_R',['SHAPE@','PROYECTO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'ViviendaCiudadTerritorio/Constr_R'),['SHAPE@','CTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 2#Convencional 
+                    row_list[2] = 2#Convencional
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Terminal_R")
+        ###########################################################################################  Tunel 
+        arcpy.AddMessage("{0} Tunel:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Instalaciones_Construcciones_Para_Transporte/Tunel',['SHAPE@','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'Transporte/Tunel'),['SHAPE@','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 1#Tunel 
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Tunel")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres('Instalaciones_Construcciones_Para_Transporte/Tunel'),['SHAPE@','NOMBRE_GEOGRAFICO','PK_CUE','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    
+                    row_list[2] = 9 #Transporte
+                    row_list[3] = 3 #Tunel 
+                    row_list[4] = 9 #Transporte 
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Terminal_P_NombreGeografico")
+        ###########################################################################################  Torre_NGeografico
+        arcpy.AddMessage("{0} Torre_NGeografico:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Torre_NGeogr('Instalaciones_Construcciones_Para_Transporte/Torre')),['SHAPE@','NOMBRE_GEOGRAFICO','TIPO','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2] = 14 #Otro
+                    row_list[3] = 1#Otro
+                    row_list[4] = 14#Otro
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Torre_NGeografico")
+        ###########################################################################################  Torre_PDistr
+        arcpy.AddMessage("{0} Torre_PDistr:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(Torre_PDistr('Instalaciones_Construcciones_Para_Transporte/Torre'),['SHAPE@','NOMBRE_GEOGRAFICO','TIPO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'InfraestructuraServicios/PDistr'),['SHAPE@','PDIdentif','PDTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[2] = 3 #Torre de energia
+                    row_list[3] = 3#Torre de energia
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Torre_PDistr")
+        arcpy.AddMessage("{0} Torre_PDistr_NGeo:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Torre_PDistr('Instalaciones_Construcciones_Para_Transporte/Torre')),['SHAPE@','NOMBRE_GEOGRAFICO','TIPO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')
+                    row_list[1] = 9 #Transporte
+                    row_list[2] = 13#Terminal terrestre
+                    row_list[2] = 9 #Transporte
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Torre_PDistr_NGeo")
+        ##########################################################################################  Tuberia
+        arcpy.AddMessage("{0} Tuberia:".format(arrow))
+        i=0
+        with arcpy.da.SearchCursor('Instalaciones_Construcciones_Para_Transporte/Tuberia',['SHAPE@','PK_CUE','TIPO_FLUIDO','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'InfraestructuraServicios/Tuberi'),['SHAPE@','TubIdentif','TubTipo','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377')   
+                    if row_list[2] == 4101: #Agua
+                        row_list[2] = 1 #Agua
+                        row_list[3] = 1 #Tuberia
+                    elif row_list[3] == 4102: #Combustible
+                        row_list[2] = 2 #Combustible
+                        row_list[3] = 1 #Tuberia
+                    elif row_list[3] == 4103: #Petroleo
+                        row_list[2] = 4 #Petroleo
+                        row_list[3] = 1 #Tuberia
+                    elif row_list[3] == 4104: #Gas
+                        row_list[2] = 3 #Gas
+                        row_list[3] = 1 #Tuberia
+                    else:               #Otro
+                        row_list[2] = 5 #Otro
+                        row_list[3] = 1 #Tuberia    
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Tuberia")
+        i=0
+        with arcpy.da.SearchCursor(filtrarsolonombres_1(Tuberia_NGeogr('Instalaciones_Construcciones_Para_Transporte/Tuberia')),['SHAPE@','NOMBRE_GEOGRAFICO','TIPO_FLUIDO','PK_CUE','RuleID']) as sCur:
+            with arcpy.da.InsertCursor(os.path.join(GDB_output, 'NombresGeograficos/NGeogr'),['SHAPE@','NGNPrincip','NGCategori','NGSubcateg','RuleID']) as iCur:
+                for row in sCur:
+                    i+=1
+                    row_list= list(row)
+                    row_list[0]= row[0].projectAs('9377').centroid
+                    row_list[2] = 14 #Otro
+                    row_list[3] = 1#otro
+                    row_list[4] = 14#Otro    
+                    row=tuple(row_list)
+                    iCur.insertRow(row)
+        registrosmigrados(i, "Tuberia")
+        edit.stopOperation()
+        edit.stopEditing(True)
+        arcpy.AddMessage("{0} ¡Proceso finalizado con exito!:".format(arrow))
+    else: 
+        pass
